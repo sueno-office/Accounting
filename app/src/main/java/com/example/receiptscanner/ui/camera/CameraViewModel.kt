@@ -18,9 +18,6 @@ import com.example.receiptscanner.domain.SoundPlayer
 import com.example.receiptscanner.domain.StabilityDetector
 import com.example.receiptscanner.domain.model.ParsedReceiptFields
 import com.example.receiptscanner.domain.model.ScanState
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,7 +65,6 @@ class CameraViewModel @Inject constructor(
     val stabilityProgress = stabilityDetector.stabilityProgress
 
     private val executor = Executors.newSingleThreadExecutor()
-    private val textRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.JAPAN)
     private var isCapturing = false
 
@@ -154,41 +150,19 @@ class CameraViewModel @Inject constructor(
     private suspend fun runOcr(photoFile: File, sessionDate: String, photoNumber: Int) {
         try {
             val bitmap = loadAndCorrectBitmap(photoFile)
-            val image = InputImage.fromBitmap(bitmap, 0)
+            val categories = settingsRepository.categories.first()
 
-            textRecognizer.process(image)
-                .addOnSuccessListener { visionText ->
-                    viewModelScope.launch {
-                        val ocrText = visionText.text
-                        analyzeWithGemini(ocrText, sessionDate, photoNumber)
-                    }
-                }
-                .addOnFailureListener { e ->
-                    viewModelScope.launch {
-                        // OCR失敗時はルールベースのみ
-                        val fallback = receiptParser.parse("")
-                        completeScan(fallback, sessionDate, photoNumber)
-                    }
-                }
+            // 画像を直接Gemini Visionに送信（ML Kit OCRをスキップ）
+            val geminiResult = if (geminiAnalyzer.isInitialized()) {
+                geminiAnalyzer.analyzeImage(bitmap, categories)
+            } else null
+
+            val parsedFields = geminiResult ?: receiptParser.parse("")
+            completeScan(parsedFields, sessionDate, photoNumber)
         } catch (e: Exception) {
             val fallback = receiptParser.parse("")
             completeScan(fallback, sessionDate, photoNumber)
         }
-    }
-
-    private suspend fun analyzeWithGemini(
-        ocrText: String,
-        sessionDate: String,
-        photoNumber: Int
-    ) {
-        val categories = settingsRepository.categories.first()
-
-        val geminiResult = if (geminiAnalyzer.isInitialized()) {
-            geminiAnalyzer.analyze(ocrText, categories)
-        } else null
-
-        val parsedFields = geminiResult ?: receiptParser.parse(ocrText)
-        completeScan(parsedFields, sessionDate, photoNumber)
     }
 
     private suspend fun completeScan(
@@ -249,7 +223,6 @@ class CameraViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        textRecognizer.close()
         executor.shutdown()
         stabilityDetector.fullReset()
     }

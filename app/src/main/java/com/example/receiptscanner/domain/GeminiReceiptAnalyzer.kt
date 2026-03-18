@@ -1,7 +1,9 @@
 package com.example.receiptscanner.domain
 
+import android.graphics.Bitmap
 import com.example.receiptscanner.domain.model.ParsedReceiptFields
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
 import com.google.ai.client.generativeai.type.generationConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -11,7 +13,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Google Gemini API を使ってレシートOCRテキストからフィールドを解析するクラス。
+ * Google Gemini API を使ってレシート画像からフィールドを解析するクラス。
+ * 画像を直接Gemini Visionに送ることでML Kit OCRをスキップし、精度を大幅改善。
  * 無料枠 (gemini-1.5-flash): 15 req/min, 1M tokens/day
  */
 @Singleton
@@ -56,13 +59,35 @@ class GeminiReceiptAnalyzer @Inject constructor() {
     fun isInitialized(): Boolean = generativeModel != null
 
     /**
-     * OCRテキストをGeminiに送信してフィールドを抽出する。
-     * @return ParsedReceiptFields (失敗時はnull)
+     * レシート画像をGemini Visionに直接送信してフィールドを抽出する。
+     * ML Kit OCRを使わず画像を直接解析するため精度が高い。
+     */
+    suspend fun analyzeImage(bitmap: Bitmap, customCategories: List<String> = emptyList()): ParsedReceiptFields? {
+        val model = generativeModel ?: return null
+        val categories = (customCategories + VALID_CATEGORIES).distinct()
+        val prompt = buildImagePrompt(categories)
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val inputContent = content {
+                    image(bitmap)
+                    text(prompt)
+                }
+                val response = model.generateContent(inputContent)
+                val responseText = response.text ?: return@withContext null
+                parseGeminiResponse(responseText, categories)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    /**
+     * OCRテキストをGeminiに送信してフィールドを抽出する（フォールバック用）。
      */
     suspend fun analyze(ocrText: String, customCategories: List<String> = emptyList()): ParsedReceiptFields? {
         val model = generativeModel ?: return null
         val categories = (customCategories + VALID_CATEGORIES).distinct()
-
         val prompt = buildPrompt(ocrText, categories)
 
         return withContext(Dispatchers.IO) {
@@ -74,6 +99,27 @@ class GeminiReceiptAnalyzer @Inject constructor() {
                 null
             }
         }
+    }
+
+    private fun buildImagePrompt(categories: List<String>): String {
+        val categoryList = categories.joinToString("/")
+        return """
+このレシート・領収書の画像を読み取り、JSON形式で情報を抽出してください。
+
+抽出するフィールド:
+- category: 経費科目。[$categoryList]から最も適切なものを選んでください
+- supplier: 店名または取引先会社名（30文字以内）
+- description: 購入した商品・サービスの概要（30文字以内）
+- amountWithTax: 税込み合計金額（整数、円単位）
+- taxRate: 消費税率（8 または 10 のいずれかの整数）
+- confidence: 抽出の信頼度（0.0〜1.0の小数）
+
+注意事項:
+- 金額は税込み合計を抽出してください
+- 消費税率が明記されていない場合は 10 としてください
+- 確信が持てないフィールドは空文字列 "" にしてください
+- 必ずJSON形式で回答してください（コードブロックは不要）
+        """.trimIndent()
     }
 
     private fun buildPrompt(ocrText: String, categories: List<String>): String {
@@ -102,7 +148,6 @@ $ocrText
     }
 
     private fun parseGeminiResponse(responseText: String, validCategories: List<String>): ParsedReceiptFields? {
-        // JSONブロックを抽出 (```json ... ``` が含まれる場合に対応)
         val cleanedJson = responseText
             .removePrefix("```json")
             .removePrefix("```")
@@ -112,14 +157,12 @@ $ocrText
         return try {
             val geminiResponse = json.decodeFromString<GeminiResponse>(cleanedJson)
 
-            // categoryのバリデーション
             val category = if (geminiResponse.category in validCategories) {
                 geminiResponse.category
             } else {
                 "その他"
             }
 
-            // taxRateのバリデーション
             val taxRate = if (geminiResponse.taxRate in listOf(8, 10)) {
                 geminiResponse.taxRate
             } else {
