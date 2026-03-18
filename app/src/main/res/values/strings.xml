@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">出納帳スキャナー</string>
+
+    <!-- Camera screen -->
+    <string name="camera_status_idle">レシートを枠内に合わせてください</string>
+    <string name="camera_status_detecting">レシートを検出中...</string>
+    <string name="camera_status_stabilizing">静止してください...</string>
+    <string name="camera_status_capturing">読み取り中...</string>
+    <string name="camera_status_processing">解析中...</string>
+    <string name="camera_status_complete">読み取り完了！</string>
+    <string name="scan_count">撮影枚数: %d 枚</string>
+    <string name="manual_entry">手動入力</string>
+    <string name="export_csv">CSV 出力</string>
+
+    <!-- Review screen -->
+    <string name="screen_review_title">読み取り結果</string>
+    <string name="field_category">科目</string>
+    <string name="field_supplier">取引先</string>
+    <string name="field_description">内容</string>
+    <string name="field_amount">税込み価格</string>
+    <string name="field_tax_rate">消費税率</string>
+    <string name="field_photo_number">写真番号</string>
+    <string name="tax_10_percent">10%</string>
+    <string name="tax_8_percent">8%</string>
+    <string name="btn_discard">破棄</string>
+    <string name="btn_save_next">保存して次へ</string>
+    <string name="confidence_score">信頼度: %d%%</string>
+
+    <!-- History screen -->
+    <string name="screen_history_title">スキャン履歴</string>
+    <string name="share_csv">CSV を共有</string>
+    <string name="history_empty">履歴がありません</string>
+    <string name="total_amount">合計: ¥%,d</string>
+
+    <!-- Settings screen -->
+    <string name="screen_settings_title">設定</string>
+    <string name="setting_sound_enabled">効果音</string>
+    <string name="setting_sound_summary">レシート読み取り完了時に音を鳴らす</string>
+    <string name="setting_skip_review">確認画面をスキップ（高速モード）</string>
+    <string name="setting_skip_review_summary">Gemini解析後、確認なしで自動保存する</string>
+    <string name="setting_gemini_api_key">Gemini API キー</string>
+    <string name="setting_gemini_hint">AIGoogleStudios で取得</string>
+    <string name="setting_stability_time">安定判定時間</string>
+    <string name="setting_stability_seconds">%.1f 秒</string>
+    <string name="setting_categories">科目リスト設定</string>
+    <string name="setting_output_folder">出力フォルダ</string>
+
+    <!-- Default categories -->
+    <string-array name="default_categories">
+        <item>交際費</item>
+        <item>交通費</item>
+        <item>消耗品費</item>
+        <item>通信費</item>
+        <item>会議費</item>
+        <item>広告費</item>
+        <item>雑費</item>
+        <item>食費</item>
+        <item>光熱費</item>
+        <item>備品費</item>
+        <item>その他</item>
+    </string-array>
+
+    <!-- Permission -->
+    <string name="permission_camera_required">カメラの権限が必要です</string>
+    <string name="permission_storage_required">ストレージの権限が必要です</string>
+    <string name="permission_grant">権限を許可</string>
+</resources>
