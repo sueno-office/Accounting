@@ -64,6 +64,9 @@ class CameraViewModel @Inject constructor(
 
     val stabilityProgress = stabilityDetector.stabilityProgress
 
+    private val _isScanningActive = MutableStateFlow(true)
+    val isScanningActive: StateFlow<Boolean> = _isScanningActive.asStateFlow()
+
     private val executor = Executors.newSingleThreadExecutor()
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.JAPAN)
     private var isCapturing = false
@@ -87,8 +90,18 @@ class CameraViewModel @Inject constructor(
     /**
      * 毎フレーム呼び出される。安定判定して必要ならキャプチャする。
      */
+    fun toggleScanning() {
+        val newValue = !_isScanningActive.value
+        _isScanningActive.value = newValue
+        if (newValue) {
+            // スキャン再開時はリセット
+            stabilityDetector.reset()
+            _scanState.value = ScanState.IDLE
+        }
+    }
+
     fun onFrame(bitmap: Bitmap, imageCapture: ImageCapture) {
-        if (isCapturing || _scanState.value == ScanState.PROCESSING) return
+        if (!_isScanningActive.value || isCapturing || _scanState.value == ScanState.PROCESSING) return
 
         when (_scanState.value) {
             ScanState.IDLE, ScanState.DETECTING, ScanState.STABILIZING -> {

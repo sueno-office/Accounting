@@ -25,8 +25,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -84,6 +86,7 @@ fun CameraScreen(
     val scanCount by viewModel.scanCount.collectAsState()
     val stabilityProgress by viewModel.stabilityProgress.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val isScanningActive by viewModel.isScanningActive.collectAsState()
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
@@ -178,7 +181,7 @@ fun CameraScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = scanStateMessage(scanState),
+                    text = scanStateMessage(scanState, isScanningActive),
                     color = Color.White,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
@@ -208,6 +211,21 @@ fun CameraScreen(
                     )
 
                     Row {
+                        OutlinedButton(
+                            onClick = { viewModel.toggleScanning() },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            if (isScanningActive) {
+                                Icon(Icons.Filled.Stop, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Red)
+                                Spacer(Modifier.width(4.dp))
+                                Text("停止")
+                            } else {
+                                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Green)
+                                Spacer(Modifier.width(4.dp))
+                                Text("再開")
+                            }
+                        }
+
                         OutlinedButton(
                             onClick = onNavigateToManualEntry,
                             modifier = Modifier.padding(end = 8.dp)
@@ -386,13 +404,16 @@ private fun ScanningOverlay(
 }
 
 @Composable
-private fun scanStateMessage(state: ScanState): String = when (state) {
-    ScanState.IDLE -> "レシートを枠内に合わせてください"
-    ScanState.DETECTING -> "レシートを検出中..."
-    ScanState.STABILIZING -> "静止してください..."
-    ScanState.CAPTURING -> "読み取り中..."
-    ScanState.PROCESSING -> "解析中..."
-    ScanState.COMPLETE -> "読み取り完了！"
+private fun scanStateMessage(state: ScanState, isScanningActive: Boolean): String {
+    if (!isScanningActive) return "スキャン停止中 - 「再開」で再スタート"
+    return when (state) {
+        ScanState.IDLE -> "レシートを枠内に合わせてください"
+        ScanState.DETECTING -> "レシートを検出中..."
+        ScanState.STABILIZING -> "静止してください..."
+        ScanState.CAPTURING -> "読み取り中..."
+        ScanState.PROCESSING -> "解析中..."
+        ScanState.COMPLETE -> "読み取り完了！"
+    }
 }
 
 @Composable
